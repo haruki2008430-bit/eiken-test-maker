@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天気と服装チェッカー</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    background: linear-gradient(160deg, #1a6fa8 0%, #4db8e8 45%, #a8d8ea 100%);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 16px 48px;
+  }
+  h1 { color:#fff; font-size:1.6rem; font-weight:700; letter-spacing:.04em; margin-bottom:6px; text-shadow:0 2px 8px rgba(0,0,0,.18); }
+  .subtitle { color:rgba(255,255,255,.82); font-size:.85rem; margin-bottom:28px; font-weight:300; }
+  .card {
+    background:rgba(255,255,255,.92); backdrop-filter:blur(12px);
+    border-radius:20px; padding:28px 24px; width:100%; max-width:460px;
+    box-shadow:0 8px 32px rgba(20,80,140,.18); margin-bottom:20px;
+  }
+  .location-row { display:flex; gap:8px; margin-bottom:14px; align-items:center; flex-wrap:wrap; }
+  .loc-btn {
+    flex:1; padding:10px 8px; border-radius:10px; border:1.5px solid #c8dff0;
+    background:#f5faff; color:#1a6fa8; font-size:.85rem; font-family:inherit;
+    font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    gap:5px; transition:background .2s, border-color .2s;
+  }
+  .loc-btn:hover { background:#e0f2fe; border-color:#4db8e8; }
+  .loc-btn.active { background:#e0f2fe; border-color:#1a6fa8; }
+  .loc-status { font-size:.78rem; color:#4a7fa5; padding:6px 0; min-height:22px; }
+  .form-row { display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+  .form-group { flex:1; min-width:140px; }
+  label { display:block; font-size:.78rem; color:#4a7fa5; font-weight:700; margin-bottom:6px; letter-spacing:.05em; }
+  input[type="date"], select {
+    width:100%; padding:10px 12px; border:1.5px solid #c8dff0; border-radius:10px;
+    font-size:.95rem; font-family:inherit; color:#1a3a5c; background:#f5faff;
+    outline:none; transition:border-color .2s;
+  }
+  input[type="date"]:focus, select:focus { border-color:#4db8e8; }
+  .divider { display:flex; align-items:center; gap:10px; margin:14px 0; color:#aac8e0; font-size:.8rem; }
+  .divider::before, .divider::after { content:''; flex:1; height:1px; background:#ddeef8; }
+  button.main-btn {
+    width:100%; padding:13px; background:linear-gradient(90deg,#1a6fa8,#4db8e8);
+    color:#fff; border:none; border-radius:12px; font-size:1rem; font-weight:700;
+    font-family:inherit; cursor:pointer; letter-spacing:.05em;
+    transition:opacity .2s, transform .1s; margin-top:4px;
+  }
+  button.main-btn:hover { opacity:.9; }
+  button.main-btn:active { transform:scale(.98); }
+  button.main-btn:disabled { opacity:.6; cursor:not-allowed; }
+  .result-card {
+    background:rgba(255,255,255,.95); border-radius:20px; padding:24px 20px;
+    width:100%; max-width:460px; box-shadow:0 8px 32px rgba(20,80,140,.15); display:none;
+  }
+  .weather-hero { text-align:center; padding-bottom:18px; border-bottom:1.5px solid #e8f4fc; margin-bottom:18px; }
+  .weather-emoji { font-size:3.4rem; display:block; margin-bottom:6px; }
+  .weather-label { font-size:1.2rem; font-weight:700; color:#1a3a5c; margin-bottom:4px; }
+  .location-badge { font-size:.8rem; color:#4a7fa5; margin-bottom:10px; }
+  .stats-row { display:flex; justify-content:center; gap:18px; flex-wrap:wrap; }
+  .stat-chip { background:#eef7ff; border-radius:20px; padding:6px 14px; font-size:.85rem; color:#2a6090; font-weight:700; }
+  .section-title { font-size:.78rem; font-weight:700; color:#4a7fa5; letter-spacing:.08em; margin-bottom:10px; }
+  .feel-box { background:#f0f9ff; border-left:4px solid #4db8e8; border-radius:0 10px 10px 0; padding:12px 14px; font-size:.9rem; color:#1a3a5c; line-height:1.7; margin-bottom:18px; }
+  .outfit-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+  .outfit-tag { background:#fff; border:1.5px solid #c8dff0; border-radius:20px; padding:6px 14px; font-size:.85rem; color:#1a6fa8; font-weight:700; display:flex; align-items:center; gap:5px; }
+  .advice-box { background:#fffbf0; border-left:4px solid #f0c040; border-radius:0 10px 10px 0; padding:12px 14px; font-size:.88rem; color:#5a4a10; line-height:1.7; }
+  .loading { text-align:center; color:#4a7fa5; font-size:.95rem; padding:12px 0; display:none; }
+  .error-box { background:#fff0f0; border-left:4px solid #e06060; border-radius:0 10px 10px 0; padding:12px 14px; font-size:.88rem; color:#8a2020; display:none; margin-top:12px; line-height:1.6; }
+  .powered { color:rgba(255,255,255,.5); font-size:.72rem; margin-top:24px; text-align:center; }
+</style>
+</head>
+<body>
+
+<h1>☁️ 天気と服装チェッカー</h1>
+<p class="subtitle">場所と日時を選ぶだけ。今日何を着るか迷わない。</p>
+
+<div class="card">
+
+  <!-- 場所セクション -->
+  <label style="margin-bottom:10px;">📍 場所を選ぶ</label>
+  <div class="location-row">
+    <button class="loc-btn" id="gpsBtn" onclick="useGPS()">📡 現在地を自動取得</button>
+  </div>
+  <div class="divider">または都市を選ぶ</div>
+  <div class="form-row" style="margin-bottom:6px;">
+    <div class="form-group">
+      <select id="citySelect" onchange="selectCity()">
+        <option value="">-- 都市を選択 --</option>
+        <optgroup label="北海道・東北">
+          <option value="43.0642,141.3469,札幌">札幌</option>
+          <option value="40.8244,140.7400,青森">青森</option>
+          <option value="39.7036,141.1527,盛岡">盛岡</option>
+          <option value="38.2688,140.8721,仙台">仙台</option>
+        </optgroup>
+        <optgroup label="関東">
+          <option value="35.6762,139.6503,東京" selected>東京</option>
+          <option value="35.4437,139.6380,横浜">横浜</option>
+          <option value="35.8617,139.6455,さいたま">さいたま</option>
+          <option value="35.6073,140.1064,千葉">千葉</option>
+        </optgroup>
+        <optgroup label="中部">
+          <option value="36.6953,137.2113,富山">富山</option>
+          <option value="36.5944,136.6256,金沢">金沢</option>
+          <option value="35.1802,136.9066,名古屋">名古屋</option>
+          <option value="35.0116,135.7681,京都">京都（参考）</option>
+        </optgroup>
+        <optgroup label="近畿">
+          <option value="34.6937,135.5023,大阪">大阪</option>
+          <option value="34.6913,135.1830,神戸">神戸</option>
+          <option value="34.6851,135.8048,奈良">奈良</option>
+        </optgroup>
+        <optgroup label="中国・四国・九州">
+          <option value="34.3966,132.4596,広島">広島</option>
+          <option value="33.5904,130.4017,福岡">福岡</option>
+          <option value="31.5969,130.5571,鹿児島">鹿児島</option>
+          <option value="26.2124,127.6809,那覇">那覇（沖縄）</option>
+        </optgroup>
+      </select>
+    </div>
+  </div>
+  <div class="loc-status" id="locStatus">📍 東京（デフォルト）</div>
+
+  <!-- 日時セクション -->
+  <div class="form-row">
+    <div class="form-group">
+      <label>📅 日付</label>
+      <input type="date" id="dateInput">
+    </div>
+    <div class="form-group">
+      <label>🕐 時間帯</label>
+      <select id="hourInput">
+        <option value="6">朝 6時</option>
+        <option value="9">朝 9時</option>
+        <option value="12" selected>昼 12時</option>
+        <option value="15">午後 3時</option>
+        <option value="18">夕方 6時</option>
+        <option value="21">夜 9時</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="main-btn" id="checkBtn" onclick="checkWeather()">天気を調べる</button>
+  <div class="loading" id="loading">⏳ 天気を取得中...</div>
+  <div class="error-box" id="errorBox"></div>
+</div>
+
+<div class="result-card" id="resultCard">
+  <div class="weather-hero">
+    <span class="weather-emoji" id="weatherEmoji">☀️</span>
+    <div class="weather-label" id="weatherLabel">晴れ</div>
+    <div class="location-badge" id="locationBadge">📍 東京</div>
+    <div class="stats-row">
+      <span class="stat-chip" id="tempChip">🌡️ --°C</span>
+      <span class="stat-chip" id="humidChip">💧 --%</span>
+      <span class="stat-chip" id="rainChip">☔ --mm</span>
+    </div>
+  </div>
+  <div class="section-title">📝 今日の感じ</div>
+  <div class="feel-box" id="feelBox">読み込み中...</div>
+  <div class="section-title">👗 おすすめの服装</div>
+  <div class="outfit-grid" id="outfitGrid"></div>
+  <div class="section-title">💡 ワンポイントアドバイス</div>
+  <div class="advice-box" id="adviceBox">読み込み中...</div>
+</div>
+
+<p class="powered">天気データ: Open-Meteo（無料・登録不要）｜ AI解説: Claude</p>
+
+<script>
+// 現在の座標・場所名
+let currentLat = 35.6762;
+let currentLon = 139.6503;
+let currentCity = '東京';
+
+// 今日の日付セット
+const today = new Date();
+const yyyy = today.getFullYear();
+const mm = String(today.getMonth()+1).padStart(2,'0');
+const dd = String(today.getDate()).padStart(2,'0');
+document.getElementById('dateInput').value = `${yyyy}-${mm}-${dd}`;
+document.getElementById('dateInput').min = `${yyyy}-${mm}-${dd}`;
+
+// デフォルトで東京を選択状態に
+document.getElementById('citySelect').value = '35.6762,139.6503,東京';
+
+// GPS取得
+function useGPS() {
+  const btn = document.getElementById('gpsBtn');
+  const status = document.getElementById('locStatus');
+  if (!navigator.geolocation) {
+    status.textContent = '⚠️ このブラウザは位置情報に対応していません';
+    return;
+  }
+  btn.textContent = '⏳ 取得中...';
+  btn.classList.add('active');
+  status.textContent = '📡 現在地を取得しています...';
+  document.getElementById('citySelect').value = '';
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      currentLat = pos.coords.latitude;
+      currentLon = pos.coords.longitude;
+      currentCity = await reverseGeocode(currentLat, currentLon);
+      btn.textContent = '✅ 現在地を取得済み';
+      status.textContent = `📍 現在地: ${currentCity}（緯度 ${currentLat.toFixed(2)}, 経度 ${currentLon.toFixed(2)}）`;
+    },
+    (err) => {
+      btn.textContent = '📡 現在地を自動取得';
+      btn.classList.remove('active');
+      const msgs = {1:'位置情報の許可が必要です。ブラウザの設定を確認してください。', 2:'位置情報を取得できませんでした。', 3:'タイムアウトしました。'};
+      status.textContent = '⚠️ ' + (msgs[err.code] || '位置情報の取得に失敗しました');
+    },
+    { timeout: 10000, enableHighAccuracy: false }
+  );
+}
+
+// 逆ジオコーディング（座標→地名）
+async function reverseGeocode(lat, lon) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja`);
+    const data = await res.json();
+    const addr = data.address;
+    return addr.city || addr.town || addr.village || addr.county || addr.state || '現在地';
+  } catch {
+    return '現在地';
+  }
+}
+
+// 都市選択
+function selectCity() {
+  const val = document.getElementById('citySelect').value;
+  if (!val) return;
+  const [lat, lon, name] = val.split(',');
+  currentLat = parseFloat(lat);
+  currentLon = parseFloat(lon);
+  currentCity = name;
+  document.getElementById('locStatus').textContent = `📍 ${name}`;
+  // GPSボタンをリセット
+  document.getElementById('gpsBtn').textContent = '📡 現在地を自動取得';
+  document.getElementById('gpsBtn').classList.remove('active');
+}
+
+function getWeatherCode(code) {
+  const map = {
+    0:{label:'快晴',emoji:'☀️'}, 1:{label:'晴れ',emoji:'🌤️'},
+    2:{label:'曇りがち',emoji:'⛅'}, 3:{label:'曇り',emoji:'☁️'},
+    45:{label:'霧',emoji:'🌫️'}, 48:{label:'霧氷',emoji:'🌫️'},
+    51:{label:'小雨',emoji:'🌦️'}, 53:{label:'雨',emoji:'🌧️'},
+    55:{label:'強い雨',emoji:'🌧️'}, 61:{label:'雨',emoji:'🌧️'},
+    63:{label:'強い雨',emoji:'🌧️'}, 65:{label:'激しい雨',emoji:'⛈️'},
+    71:{label:'雪',emoji:'🌨️'}, 73:{label:'大雪',emoji:'❄️'},
+    80:{label:'にわか雨',emoji:'🌦️'}, 81:{label:'にわか雨',emoji:'🌧️'},
+    95:{label:'雷雨',emoji:'⛈️'}, 96:{label:'雷雨＋ひょう',emoji:'⛈️'},
+  };
+  for (const key of Object.keys(map).sort((a,b)=>b-a)) {
+    if (code >= Number(key)) return map[key];
+  }
+  return {label:'不明',emoji:'🌡️'};
+}
+
+async function checkWeather() {
+  const date = document.getElementById('dateInput').value;
+  const hour = parseInt(document.getElementById('hourInput').value);
+  const btn = document.getElementById('checkBtn');
+  const loading = document.getElementById('loading');
+  const errorBox = document.getElementById('errorBox');
+  const resultCard = document.getElementById('resultCard');
+
+  if (!date) { alert('日付を選んでください'); return; }
+
+  btn.disabled = true;
+  loading.style.display = 'block';
+  errorBox.style.display = 'none';
+  resultCard.style.display = 'none';
+
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLon}&hourly=temperature_2m,relativehumidity_2m,precipitation,weathercode&timezone=Asia%2FTokyo&start_date=${date}&end_date=${date}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('天気データの取得に失敗しました');
+    const data = await res.json();
+
+    const times = data.hourly.time;
+    const idx = times.findIndex(t => t.endsWith(`T${String(hour).padStart(2,'0')}:00`));
+    if (idx === -1) throw new Error('指定の時間帯のデータが見つかりませんでした');
+
+    const temp = Math.round(data.hourly.temperature_2m[idx]);
+    const humid = data.hourly.relativehumidity_2m[idx];
+    const rain = data.hourly.precipitation[idx];
+    const code = data.hourly.weathercode[idx];
+    const {label, emoji} = getWeatherCode(code);
+
+    document.getElementById('weatherEmoji').textContent = emoji;
+    document.getElementById('weatherLabel').textContent = label;
+    document.getElementById('locationBadge').textContent = `📍 ${currentCity}`;
+    document.getElementById('tempChip').textContent = `🌡️ ${temp}°C`;
+    document.getElementById('humidChip').textContent = `💧 ${humid}%`;
+    document.getElementById('rainChip').textContent = `☔ ${rain}mm`;
+
+    await generateAIComment(temp, humid, rain, label, hour, currentCity);
+
+    resultCard.style.display = 'block';
+    resultCard.scrollIntoView({behavior:'smooth', block:'start'});
+
+  } catch(e) {
+    errorBox.innerHTML = `⚠️ ${e.message}`;
+    errorBox.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    loading.style.display = 'none';
+  }
+}
+
+async function generateAIComment(temp, humid, rain, weatherLabel, hour, city) {
+  const hourLabel = hour < 12 ? '朝' : hour < 17 ? '昼' : hour < 20 ? '夕方' : '夜';
+  const prompt = `以下の天気データをもとに、日常生活での感覚で説明してください。
+
+場所: ${city}
+天気: ${weatherLabel}
+気温: ${temp}°C
+湿度: ${humid}%
+降水量: ${rain}mm
+時間帯: ${hourLabel}
+
+以下の3つをJSON形式で返してください（他の文字は一切不要）:
+{
+  "feel": "その日の感じを2〜3文で、日常感覚で説明（例：「ちょっと蒸し暑く感じる日。汗をかきやすいので水分補給を忘れずに。」）",
+  "outfit": ["服装アイテム1（絵文字つき）", "服装アイテム2", ...],
+  "advice": "その天気に合った生活アドバイスを1〜2文"
+}
+
+outfitは3〜5個のアイテム。絵文字を先頭に（例：「👕 半袖Tシャツ」）。
+降水量が0.5mm以上なら傘を含めること。気温に合った服装を提案すること。`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        messages: [{role:'user', content:prompt}]
+      })
+    });
+    const data = await res.json();
+    const text = data.content[0].text.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(text);
+
+    document.getElementById('feelBox').textContent = parsed.feel;
+    document.getElementById('adviceBox').textContent = parsed.advice;
+    const grid = document.getElementById('outfitGrid');
+    grid.innerHTML = '';
+    parsed.outfit.forEach(item => {
+      const tag = document.createElement('div');
+      tag.className = 'outfit-tag';
+      tag.textContent = item;
+      grid.appendChild(tag);
+    });
+  } catch {
+    document.getElementById('feelBox').textContent = fallbackFeel(temp, humid, rain);
+    document.getElementById('adviceBox').textContent = fallbackAdvice(temp, rain);
+    renderFallbackOutfit(temp, rain);
+  }
+}
+
+function fallbackFeel(temp, humid, rain) {
+  if (rain > 5) return 'かなりの雨が降る日です。外出は最小限にするか、しっかり雨具を準備しましょう。';
+  if (rain > 0.5) return `傘が必要な雨の日です。気温は${temp}°C、湿度${humid}%でじめっとした感じがあります。`;
+  if (temp >= 30) return `かなり暑い日です。気温${temp}°Cは「熱中症に注意」レベル。外に長くいるのはつらいです。`;
+  if (temp >= 25) return `暑い日ですが過ごしやすい範囲です。湿度${humid}%なので、汗はかきますが動きやすい天気です。`;
+  if (temp >= 15) return `過ごしやすい気候です。${temp}°Cは半袖でちょうどいいか、少し涼しく感じる程度です。`;
+  return `肌寒い日です。${temp}°Cは上着がないと少し寒く感じます。`;
+}
+function fallbackAdvice(temp, rain) {
+  if (rain > 0.5) return '折りたたみ傘か傘を持っていきましょう。靴も濡れやすい日です。';
+  if (temp >= 30) return '水分補給をこまめに。日傘や帽子があると快適です。';
+  if (temp >= 15) return '過ごしやすい天気です。念のため薄手の羽織り物があると安心です。';
+  return '防寒をしっかりして出かけましょう。';
+}
+function renderFallbackOutfit(temp, rain) {
+  const grid = document.getElementById('outfitGrid');
+  grid.innerHTML = '';
+  const items = [];
+  if (rain > 0.5) items.push('☂️ 傘');
+  if (temp >= 28) { items.push('👕 半袖Tシャツ'); items.push('🩳 短パン'); }
+  else if (temp >= 20) { items.push('👕 半袖Tシャツ'); items.push('👖 ジーパン'); }
+  else if (temp >= 15) { items.push('👔 長袖シャツ'); items.push('👖 ジーパン'); }
+  else { items.push('🧥 上着'); items.push('👔 長袖シャツ'); items.push('👖 ジーパン'); }
+  if (temp < 20 && rain < 0.5) items.push('🎒 鞄に薄手の上着');
+  items.forEach(item => {
+    const tag = document.createElement('div');
+    tag.className = 'outfit-tag';
+    tag.textContent = item;
+    grid.appendChild(tag);
+  });
+}
+</script>
+</body>
+</html>
